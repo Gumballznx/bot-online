@@ -200,8 +200,8 @@ async function start() {
         if (!ts || Date.now() - ts > 60_000) continue // ignora mensagens antigas
         const m = msg.message.ephemeralMessage?.message || msg.message
         const text = (m.conversation || m.extendedTextMessage?.text || '').trim().toLowerCase()
-        if (text !== '.ping' && text !== '.bot') continue
-        await handleOwnerCommand(sock, msg, text, ts)
+        if (!['.ping', '.bot', '.ver'].includes(text)) continue
+        await handleOwnerCommand(sock, msg, text, ts, m)
       } catch (e) {
         console.error('Erro no comando:', e.message)
       }
@@ -255,8 +255,54 @@ function formatUptime(ms) {
   return [d && `${d}d`, h && `${h}h`, m && `${m}m`, `${s}s`].filter(Boolean).join(' ')
 }
 
-async function handleOwnerCommand(sock, msg, cmd, sentAt) {
+// .ver — marque (responda) uma mídia de visualização única com .ver
+// e o bot reenvia ela aberta (normal) no mesmo chat.
+async function revealViewOnce(sock, msg, m) {
   const jid = msg.key.remoteJid
+  const ctx = m.extendedTextMessage?.contextInfo
+  const quoted = ctx?.quotedMessage
+  if (!quoted) {
+    await sock.sendMessage(jid, { text: '↩️ Marque (responda) uma foto, vídeo ou áudio de visualização única com *.ver*' }, { quoted: msg })
+    return
+  }
+  const inner =
+    quoted.viewOnceMessageV2?.message ||
+    quoted.viewOnceMessage?.message ||
+    quoted.viewOnceMessageV2Extension?.message ||
+    quoted
+  const kind = ['imageMessage', 'videoMessage', 'audioMessage'].find((k) => inner[k])
+  if (!kind) {
+    await sock.sendMessage(jid, { text: '⚠️ A mensagem marcada não é foto, vídeo nem áudio.' }, { quoted: msg })
+    return
+  }
+  const media = inner[kind]
+  let buffer
+  try {
+    buffer = await downloadMediaMessage(
+      {
+        key: { remoteJid: jid, id: ctx.stanzaId, participant: ctx.participant, fromMe: false },
+        message: { [kind]: media },
+      },
+      'buffer',
+      {},
+      { logger, reuploadRequest: sock.updateMediaMessage }
+    )
+  } catch (e) {
+    await sock.sendMessage(jid, { text: '❌ Não consegui baixar essa mídia (ela pode ter expirado ou já ter sido aberta).' }, { quoted: msg })
+    return
+  }
+  const caption = media.caption || undefined
+  if (kind === 'imageMessage') await sock.sendMessage(jid, { image: buffer, caption }, { quoted: msg })
+  else if (kind === 'videoMessage') await sock.sendMessage(jid, { video: buffer, caption }, { quoted: msg })
+  else await sock.sendMessage(jid, { audio: buffer, mimetype: media.mimetype || 'audio/ogg; codecs=opus', ptt: !!media.ptt }, { quoted: msg })
+}
+
+async function handleOwnerCommand(sock, msg, cmd, sentAt, m) {
+  const jid = msg.key.remoteJid
+  if (cmd === '.ver') {
+    await revealViewOnce(sock, msg, m)
+    return
+  }
   if (cmd === '.ping') {
     const lat = Math.max(0, Date.now() - sentAt)
     await sock.sendMessage(jid, { text: `🏓 *Pong!*\n⚡ ${lat} ms\n⏱️ Online há ${formatUptime(Date.now() - startedAt)}` }, { quoted: msg })
@@ -284,7 +330,7 @@ async function handleOwnerCommand(sock, msg, cmd, sentAt) {
     '🔵 Tique azul: desligado',
     '👁️ Visualização única: salvando no seu chat',
     '',
-    '_Comandos (só você pode usar): .ping • .bot_',
+    '_Comandos (só você pode usar): .ping • .bot • .ver_',
   ].join('\n')
   await sock.sendMessage(jid, { text }, { quoted: msg })
 }

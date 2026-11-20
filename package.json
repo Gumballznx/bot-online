@@ -1,23 +1,39 @@
 {
-  "name": "@gumballznx/bot-online",
-  "version": "1.4.0",
+  "name": "bot-online",
+  "version": "1.5.0",
   "description": "Bot de WhatsApp (Baileys) que mantém a conta online, desliga o tique azul e guarda visualizações únicas no seu próprio chat.",
   "type": "module",
   "main": "index.js",
-  "bin": { "bot-online": "index.js" },
-  "files": ["index.js", "banner.js", "README.md"],
-  "engines": { "node": ">=20" },
+  "bin": {
+    "bot-online": "index.js"
+  },
+  "files": [
+    "index.js",
+    "banner.js",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node index.js",
     "code": "node index.js --code",
     "qr": "node index.js --qr",
     "reset": "node index.js reset"
   },
-  "repository": { "type": "git", "url": "git+https://github.com/Gumballznx/bot-online.git" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gumballznx/bot-online.git"
+  },
   "homepage": "https://github.com/Gumballznx/bot-online#readme",
-  "keywords": ["whatsapp", "baileys", "bot", "online", "pm2"],
+  "keywords": [
+    "whatsapp",
+    "baileys",
+    "bot",
+    "online",
+    "pm2"
+  ],
   "license": "MIT",
-  "publishConfig": { "registry": "https://npm.pkg.github.com" },
   "dependencies": {
     "@whiskeysockets/baileys": "^7.0.0-rc.9",
     "pino": "^9.0.0",
