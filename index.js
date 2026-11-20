@@ -267,17 +267,7 @@ async function start() {
     if (type !== 'notify') return
     for (const msg of messages) {
       try {
-        if (msg.key.fromMe) continue
-        // Diagnóstico: mostra o formato (só os nomes dos campos) de visualizações únicas
-        const raw = JSON.stringify(msg.message || {})
-        if (/viewOnce/i.test(raw) || msg.messageStubType) {
-          const shape = (o, d = 0) =>
-            o && typeof o === 'object' && d < 4
-              ? Object.fromEntries(Object.entries(o).filter(([k]) => !/key|sha|hash|thumb|url|path|jpeg/i.test(k)).map(([k, v]) => [k, shape(v, d + 1)]))
-              : typeof o
-          console.log('🔎 visu única recebida:', JSON.stringify({ id: msg.key.id, stub: msg.messageStubType, temMediaKey: /mediaKey/.test(raw), formato: shape(msg.message) }))
-        }
-        if (!msg.message) continue
+        if (!msg.message || msg.key.fromMe) continue
 
         // Formato antigo: mídia embrulhada em viewOnceMessage*
         const wrapper =
