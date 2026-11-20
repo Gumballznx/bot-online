@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs'
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
+pkg.name = pkg.name.replace(/^@[^/]+\//, '') // tira o @dono/ do nome
 
 const c = {
   reset: '\x1b[0m',

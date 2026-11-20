@@ -2,7 +2,7 @@
 
 ```
 ╭────────────────────────────────────────────────────╮
-│      _|_      bot-online v1.2.0                    │
+│      _|_      bot-online v1.3.0                    │
 │    .-----.    WhatsApp • Baileys                   │
 │   | ^   ^ |                                        │
 │   |  \_/  |/  ● sempre online  ● sem tique azul    │
@@ -22,85 +22,94 @@ Bot de WhatsApp que roda **na sua própria conta**, numa VPS ou PC, 24 horas por
 | 🔄 **Reconecta sozinho** | Se a internet cair, ele volta sozinho |
 | 💾 **Se instala no pm2 sozinho** | Na primeira conexão ele mesmo se coloca no pm2 e fica salvo para voltar quando a VPS reiniciar |
 
-## 📋 O que você precisa
+## ⚡ Instalação rápida (1 comando)
 
-- Uma VPS Linux (Ubuntu/Debian) **ou** Termux no Android
-- **Node.js 20+**, **git** e **pm2**
-
-Na VPS (Ubuntu/Debian), instale tudo assim:
+Na VPS (Ubuntu/Debian) ou no Termux, cole:
 
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-apt install -y nodejs git
-npm i -g pm2
-pm2 startup   # faz o pm2 iniciar junto com a VPS
+curl -fsSL https://raw.githubusercontent.com/Gumballznx/bot-online/main/install.sh | bash
 ```
 
-## 🚀 Instalação (passo a passo)
+Ele instala o Node.js, o git e o pm2 se faltar, baixa o bot e já abre o menu de conexão. 👇
 
-**1. Baixe o bot**
+## 🔌 Conectar
+
+Depois de instalado, é só digitar:
 
 ```bash
-git clone https://github.com/Gumballznx/bot-online.git
-cd bot-online
-npm install
+bot-online
 ```
 
-**2. Conecte seu WhatsApp**
+O mascote aparece e o bot pergunta:
 
-Use o seu número **com o código do país, só os números** (sem `+`, espaço ou traço):
+```
+Como você quer conectar o WhatsApp?
 
-| País | Exemplo |
+  [1] 📷 QR code
+  [2] 🔑 Código de pareamento (pelo número)
+
+Escolha 1 ou 2 -->
+```
+
+- **[1] QR code:** o QR aparece na hora. No celular: **WhatsApp → ⋮ → Aparelhos conectados → Conectar aparelho** e escaneie.
+- **[2] Código de pareamento:** o bot pede seu número **sem o +** e mostra um código tipo `ABCD-EFGH`. No celular: **WhatsApp → ⋮ → Aparelhos conectados → Conectar aparelho → Conectar com número de telefone** e digite o código.
+
+| País | Exemplo de número |
 |---|---|
 | 🇲🇿 Moçambique | `258841234567` |
 | 🇧🇷 Brasil | `5511999999999` |
 | 🇦🇴 Angola | `244923456789` |
 | 🇵🇹 Portugal | `351912345678` |
 
-```bash
-node index.js --code 258841234567
-```
+**Conectou? Pronto! ✅** O bot **se coloca sozinho no pm2** e salva na hora. Pode fechar o terminal: ele continua rodando 24h e volta sozinho se a VPS reiniciar.
 
-O mascote aparece e logo depois um código, por exemplo:
+Se rodar `bot-online` de novo com ele já conectado, ele só avisa que já está rodando (não abre outra conexão).
 
-```
-🔑 Código de pareamento: ABCD-EFGH
-```
-
-**3. Digite o código no celular**
-
-No WhatsApp: **⋮ (três pontinhos) → Aparelhos conectados → Conectar aparelho → Conectar com número de telefone** e digite o código.
-
-**4. Pronto!** ✅
-
-Quando conectar, o bot **se coloca sozinho no pm2** e salva. Você já pode fechar o terminal: ele continua rodando e volta sozinho se a VPS reiniciar.
-
-> Prefere QR code? Rode só `npm start` e escaneie o QR em **Aparelhos conectados → Conectar aparelho**.
-
-## 🛠️ Comandos úteis
+## 🛠️ Comandos
 
 | Para... | Comando |
 |---|---|
+| Conectar / abrir o menu | `bot-online` |
+| Ir direto pro QR | `bot-online --qr` |
+| Ir direto pro código | `bot-online --code 258841234567` |
+| Desconectar e apagar a sessão | `bot-online reset` |
 | Ver se está rodando | `pm2 ls` |
 | Ver os logs | `pm2 logs bot-online` |
 | Reiniciar | `pm2 restart bot-online` |
-| Parar | `pm2 stop bot-online` |
-| Atualizar para a versão nova | `git pull && npm install && pm2 restart bot-online` |
-| Conectar outro número | `pm2 delete bot-online && rm -rf auth && node index.js --code SEUNUMERO` |
+| Atualizar para a versão nova | `npm i -g github:Gumballznx/bot-online && pm2 restart bot-online` |
+| Conectar outro número | `bot-online reset` e depois `bot-online` |
 
-Também dá para parear direto pelo pm2 e ver o código nos logs:
+## 📦 Outras formas de instalar
+
+**Pelo npm (direto do GitHub, sem token):**
 
 ```bash
-BOT_CODE=1 BOT_PHONE=258841234567 pm2 start index.js --name bot-online
-pm2 logs bot-online
+npm i -g pm2 github:Gumballznx/bot-online
+bot-online
+```
+
+**Clonando o repositório:**
+
+```bash
+git clone https://github.com/Gumballznx/bot-online.git
+cd bot-online && npm install
+node index.js
+```
+
+**Pela [Release](https://github.com/Gumballznx/bot-online/releases/latest):** baixe o `.tar.gz`, extraia, rode `npm install` e `node index.js`.
+
+**Pelo GitHub Packages** (precisa de um token do GitHub com `read:packages`):
+
+```bash
+npm i -g @gumballznx/bot-online --registry=https://npm.pkg.github.com
 ```
 
 ## ❓ Problemas comuns
 
 | Problema | Solução |
 |---|---|
-| `Sessão encerrada` | Você desconectou o aparelho. Rode `rm -rf auth` e conecte de novo |
-| O código não é aceito | Confira o número (código do país, sem `+`). Apague `auth/` e gere outro, o código expira em poucos minutos |
+| `Sessão encerrada` | Você desconectou o aparelho. Rode `bot-online reset` e depois `bot-online` |
+| O código não é aceito | Confira o número (código do país, sem `+`). Rode `bot-online reset` e gere outro, o código expira em poucos minutos |
 | `pm2 não encontrado` | Instale com `npm i -g pm2` |
 | Não aparece online | Veja `pm2 ls`. Se estiver `errored`, olhe `pm2 logs bot-online` |
 | As visualizações únicas não chegam | Abra a conversa **com você mesmo** no WhatsApp, é lá que elas aparecem |
@@ -109,11 +118,14 @@ pm2 logs bot-online
 
 ```
 bot-online/
-├── index.js      # o bot (conexão, online, visualização única, pm2)
+├── index.js      # o bot (menu, conexão, online, visualização única, pm2)
 ├── banner.js     # mascote animado do início
+├── install.sh    # instalador de 1 comando
 ├── package.json  # nome, versão e dependências
-└── auth/         # sua sessão do WhatsApp (criada ao conectar, NUNCA compartilhe)
+└── auth/         # sua sessão do WhatsApp (NUNCA compartilhe)
 ```
+
+Instalado pelo npm/instalador, a sessão fica em `~/.bot-online/auth`.
 
 > ⚠️ A pasta `auth/` é o seu login do WhatsApp. Não envie para ninguém e não suba para o GitHub (o `.gitignore` já bloqueia).
 
