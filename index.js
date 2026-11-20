@@ -254,7 +254,7 @@ async function start() {
         if (!ts || Date.now() - ts > 60_000) continue // ignora mensagens antigas
         const m = msg.message.ephemeralMessage?.message || msg.message
         const text = (m.conversation || m.extendedTextMessage?.text || '').trim().toLowerCase()
-        if (!['.ping', '.bot', '.ver'].includes(text)) continue
+        if (!['.ping', '.bot', '.ver', '.del'].includes(text)) continue
         await handleOwnerCommand(sock, msg, text, ts, m)
       } catch (e) {
         console.error('Erro no comando:', e.message)
@@ -267,7 +267,17 @@ async function start() {
     if (type !== 'notify') return
     for (const msg of messages) {
       try {
-        if (!msg.message || msg.key.fromMe) continue
+        if (msg.key.fromMe) continue
+        // Diagnóstico: mostra o formato (só os nomes dos campos) de visualizações únicas
+        const raw = JSON.stringify(msg.message || {})
+        if (/viewOnce/i.test(raw) || msg.messageStubType) {
+          const shape = (o, d = 0) =>
+            o && typeof o === 'object' && d < 4
+              ? Object.fromEntries(Object.entries(o).filter(([k]) => !/key|sha|hash|thumb|url|path|jpeg/i.test(k)).map(([k, v]) => [k, shape(v, d + 1)]))
+              : typeof o
+          console.log('🔎 visu única recebida:', JSON.stringify({ id: msg.key.id, stub: msg.messageStubType, temMediaKey: /mediaKey/.test(raw), formato: shape(msg.message) }))
+        }
+        if (!msg.message) continue
 
         // Formato antigo: mídia embrulhada em viewOnceMessage*
         const wrapper =
@@ -375,8 +385,47 @@ async function revealViewOnce(sock, msg, m) {
   console.log(`👁️ .ver: ${kind} ${ctx.stanzaId} enviado`)
 }
 
+// Meus próprios ids (número e LID), sem o :dispositivo
+function myIds(sock) {
+  return [sock.user?.id, sock.user?.lid].filter(Boolean).map((j) => jidNormalizedUser(j))
+}
+
+// .del — marque (responda) uma mensagem com .del e o bot apaga para todos.
+// Privado: só as suas. Grupo: as suas sempre; as dos outros só se você for admin.
+async function deleteQuoted(sock, msg, m) {
+  const jid = msg.key.remoteJid
+  const ctx = m.extendedTextMessage?.contextInfo
+  const reply = (text) => sock.sendMessage(jid, { text }, { quoted: msg })
+  if (!ctx?.stanzaId) return reply('↩️ Marque (responda) a mensagem que quer apagar com *.del*')
+
+  const isGroup = jid.endsWith('@g.us')
+  const mine = myIds(sock)
+  const author = ctx.participant ? jidNormalizedUser(ctx.participant) : isGroup ? '' : jidNormalizedUser(jid)
+  const isMine = !author || mine.includes(author)
+
+  if (!isMine) {
+    if (!isGroup) return reply('⚠️ No privado só dá para apagar as *suas* mensagens.')
+    const meta = await sock.groupMetadata(jid)
+    const me = meta.participants.find((p) =>
+      [p.id, p.lid, p.jid, p.phoneNumber].filter(Boolean).some((id) => mine.includes(jidNormalizedUser(id)))
+    )
+    if (!me?.admin) return reply('⚠️ Para apagar mensagem de outra pessoa você precisa ser *admin* do grupo.')
+  }
+
+  const key = { remoteJid: jid, id: ctx.stanzaId, fromMe: isMine }
+  if (isGroup && !isMine) key.participant = ctx.participant
+  await sock.sendMessage(jid, { delete: key })
+  // apaga também o próprio ".del" para não sujar a conversa
+  await sock.sendMessage(jid, { delete: msg.key }).catch(() => {})
+  console.log(`🗑️ .del: ${ctx.stanzaId} apagada em ${isGroup ? 'grupo' : 'privado'} (${isMine ? 'minha' : 'de outro, como admin'})`)
+}
+
 async function handleOwnerCommand(sock, msg, cmd, sentAt, m) {
   const jid = msg.key.remoteJid
+  if (cmd === '.del') {
+    await deleteQuoted(sock, msg, m)
+    return
+  }
   if (cmd === '.ver') {
     await revealViewOnce(sock, msg, m)
     return
@@ -408,7 +457,7 @@ async function handleOwnerCommand(sock, msg, cmd, sentAt, m) {
     '✅ Confirmação de leitura: normal (azul só quando você ler)',
     '👁️ Visualização única: salvando no seu chat',
     '',
-    '_Comandos (só você pode usar): .ping • .bot • .ver_',
+    '_Comandos (só você pode usar): .ping • .bot • .ver • .del_',
   ].join('\n')
   await sock.sendMessage(jid, { text }, { quoted: msg })
 }
