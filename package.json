@@ -1,6 +1,6 @@
 {
   "name": "@gumballznx/bot-online",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Bot de WhatsApp (Baileys) que mantém a conta online, desliga o tique azul e guarda visualizações únicas no seu próprio chat.",
   "type": "module",
   "main": "index.js",

@@ -2,7 +2,7 @@
 
 ```
 ╭────────────────────────────────────────────────────╮
-│      _|_      bot-online v1.3.0                    │
+│      _|_      bot-online v1.4.0                    │
 │    .-----.    WhatsApp • Baileys                   │
 │   | ^   ^ |                                        │
 │   |  \_/  |/  ● sempre online  ● sem tique azul    │
@@ -20,6 +20,7 @@ Bot de WhatsApp que roda **na sua própria conta**, numa VPS ou PC, 24 horas por
 | 🔵 **Sem tique azul** | Desliga a confirmação de leitura: ninguém vê que você leu |
 | 👁️ **Salva visualização única** | Foto, vídeo ou áudio de "ver uma vez" que você receber chega como cópia no **seu próprio chat** (a conversa com você mesmo) |
 | 🔄 **Reconecta sozinho** | Se a internet cair, ele volta sozinho |
+| 💬 **Comandos `.ping` e `.bot`** | Só você (o número conectado) pode usar |
 | 💾 **Se instala no pm2 sozinho** | Na primeira conexão ele mesmo se coloca no pm2 e fica salvo para voltar quando a VPS reiniciar |
 
 ## ⚡ Instalação rápida (1 comando)
@@ -65,7 +66,18 @@ Escolha 1 ou 2 -->
 
 Se rodar `bot-online` de novo com ele já conectado, ele só avisa que já está rodando (não abre outra conexão).
 
-## 🛠️ Comandos
+## 💬 Comandos no WhatsApp
+
+Mande em **qualquer conversa** (ou no chat com você mesmo):
+
+| Comando | Resposta |
+|---|---|
+| `.ping` | 🏓 Pong! com a velocidade de resposta e há quanto tempo está online |
+| `.bot` | 🤖 Mascote, nome, versão, número, tempo online, memória e status das funções |
+
+> 🔒 **Só o número conectado pode usar.** Se outra pessoa mandar `.ping` ou `.bot` para você, o bot ignora.
+
+## 🛠️ Comandos no terminal
 
 | Para... | Comando |
 |---|---|

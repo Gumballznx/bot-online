@@ -15,7 +15,7 @@ import { existsSync, writeFileSync, rmSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import os from 'node:os'
 import path from 'node:path'
-import { showBanner, BOT_NAME } from './banner.js'
+import { showBanner, BOT_NAME, BOT_VERSION } from './banner.js'
 
 const logger = pino({ level: 'silent' })
 const BOT_DIR = path.dirname(fileURLToPath(import.meta.url))
@@ -42,6 +42,7 @@ const qrFlag = args.includes('--qr')
 let phone = (args.find((a) => /^\+?\d{10,15}$/.test(a)) || process.env.BOT_PHONE || '').replace(/\D/g, '')
 
 let presenceTimer
+const startedAt = Date.now()
 let reconnectDelay = 2_000
 
 const ask = (q) =>
@@ -189,6 +190,24 @@ async function start() {
     }
   })
 
+  // Comandos do dono (.ping / .bot) — só o número conectado pode usar
+  sock.ev.on('messages.upsert', async ({ messages }) => {
+    for (const msg of messages) {
+      try {
+        // fromMe = mensagem enviada pela própria conta conectada. Dos outros, ignora.
+        if (!msg.message || !msg.key.fromMe) continue
+        const ts = Number(msg.messageTimestamp) * 1000
+        if (!ts || Date.now() - ts > 60_000) continue // ignora mensagens antigas
+        const m = msg.message.ephemeralMessage?.message || msg.message
+        const text = (m.conversation || m.extendedTextMessage?.text || '').trim().toLowerCase()
+        if (text !== '.ping' && text !== '.bot') continue
+        await handleOwnerCommand(sock, msg, text, ts)
+      } catch (e) {
+        console.error('Erro no comando:', e.message)
+      }
+    }
+  })
+
   // Espelha mídia de visualização única para o seu próprio chat
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     if (type !== 'notify') return
@@ -227,6 +246,47 @@ async function start() {
       }
     }
   })
+}
+
+function formatUptime(ms) {
+  const sec = Math.floor(ms / 1000)
+  const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600)
+  const m = Math.floor((sec % 3600) / 60), s = sec % 60
+  return [d && `${d}d`, h && `${h}h`, m && `${m}m`, `${s}s`].filter(Boolean).join(' ')
+}
+
+async function handleOwnerCommand(sock, msg, cmd, sentAt) {
+  const jid = msg.key.remoteJid
+  if (cmd === '.ping') {
+    const lat = Math.max(0, Date.now() - sentAt)
+    await sock.sendMessage(jid, { text: `🏓 *Pong!*\n⚡ ${lat} ms\n⏱️ Online há ${formatUptime(Date.now() - startedAt)}` }, { quoted: msg })
+    return
+  }
+  // .bot
+  const mem = (process.memoryUsage().rss / 1024 / 1024).toFixed(0)
+  const art = [
+    '    _|_',
+    '  .-----.',
+    ' | ^   ^ |',
+    ' |  \\_/  |/',
+    "  '-----'",
+  ].join('\n')
+  const text = [
+    '```' + art + '```',
+    `🤖 *${BOT_NAME}* v${BOT_VERSION}`,
+    '',
+    `📱 Número: ${jidNormalizedUser(sock.user.id).split('@')[0]}`,
+    `⏱️ Online há: ${formatUptime(Date.now() - startedAt)}`,
+    `💾 Memória: ${mem} MB  •  Node ${process.version}`,
+    `⚙️ pm2: ${underPm2 ? 'sim ✅' : 'não'}`,
+    '',
+    '🟢 Sempre online: ativo',
+    '🔵 Tique azul: desligado',
+    '👁️ Visualização única: salvando no seu chat',
+    '',
+    '_Comandos (só você pode usar): .ping • .bot_',
+  ].join('\n')
+  await sock.sendMessage(jid, { text }, { quoted: msg })
 }
 
 async function main() {
