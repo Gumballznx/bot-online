@@ -217,8 +217,10 @@ async function start() {
       reconnectDelay = 2_000
       codeMode = false
       console.log('✅ Conectado como', sock.user.id)
-      // Desliga confirmação de leitura (tique azul) na conta
-      try { await sock.updateReadReceiptsPrivacy('none') } catch {}
+      // Confirmação de leitura normal: ✓✓ cinza quando chega, ✓✓ azul só quando
+      // VOCÊ ler no celular. O bot nunca marca nada como lido sozinho.
+      // (versões antigas desligavam isso; aqui religamos)
+      try { await sock.updateReadReceiptsPrivacy('all') } catch {}
       // Mantém "online" sempre
       clearInterval(presenceTimer)
       await sock.sendPresenceUpdate('available').catch(() => {})
@@ -403,7 +405,7 @@ async function handleOwnerCommand(sock, msg, cmd, sentAt, m) {
     `⚙️ pm2: ${underPm2 ? 'sim ✅' : 'não'}`,
     '',
     '🟢 Sempre online: ativo',
-    '🔵 Tique azul: desligado',
+    '✅ Confirmação de leitura: normal (azul só quando você ler)',
     '👁️ Visualização única: salvando no seu chat',
     '',
     '_Comandos (só você pode usar): .ping • .bot • .ver_',
