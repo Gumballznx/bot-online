@@ -9,9 +9,17 @@ import makeWASocket, {
 import pino from 'pino'
 import qrcode from 'qrcode-terminal'
 import readline from 'node:readline'
+import { execFileSync } from 'node:child_process'
+import { existsSync, writeFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import path from 'node:path'
+import { showBanner, BOT_NAME } from './banner.js'
 
 const logger = pino({ level: 'silent' })
-const AUTH_DIR = './auth'
+const BOT_DIR = path.dirname(fileURLToPath(import.meta.url))
+const AUTH_DIR = path.join(BOT_DIR, 'auth')
+const PM2_FLAG = path.join(AUTH_DIR, '.pm2-saved')
+const underPm2 = process.env.pm_id !== undefined
 
 // Modo de conexão:
 //   node index.js                     -> QR code no terminal
@@ -51,6 +59,47 @@ async function requestCode(sock) {
   console.log('📲 WhatsApp > Aparelhos conectados > Conectar aparelho > Conectar com número de telefone')
 }
 
+const pm2 = (...a) => execFileSync('pm2', a, { stdio: 'ignore' })
+
+// Na primeira conexão, registra o bot no pm2 e salva a lista,
+// para ele rodar 24h e voltar sozinho se a VPS reiniciar.
+async function setupPm2(sock) {
+  if (existsSync(PM2_FLAG)) return
+  try {
+    pm2('-v')
+  } catch {
+    console.log('ℹ️ pm2 não encontrado. Instale com "npm i -g pm2" para rodar 24h.')
+    return
+  }
+  try {
+    if (underPm2) {
+      pm2('save')
+      writeFileSync(PM2_FLAG, new Date().toISOString())
+      console.log('💾 Bot salvo no pm2 (volta sozinho se a VPS reiniciar).')
+      return
+    }
+    // Rodando no terminal: fecha esta conexão e entrega o bot para o pm2.
+    console.log('🚀 Primeira conexão! Passando o bot para o pm2...')
+    clearInterval(presenceTimer)
+    handingOff = true
+    sock.end(undefined)
+    await new Promise((r) => setTimeout(r, 1_500))
+    let exists = true
+    try { pm2('describe', BOT_NAME) } catch { exists = false }
+    if (exists) pm2('restart', BOT_NAME, '--update-env')
+    else pm2('start', path.join(BOT_DIR, 'index.js'), '--name', BOT_NAME, '--cwd', BOT_DIR)
+    pm2('save')
+    writeFileSync(PM2_FLAG, new Date().toISOString())
+    console.log(`✅ Bot rodando no pm2 como "${BOT_NAME}" e salvo para iniciar com a VPS.`)
+    console.log(`   Logs: pm2 logs ${BOT_NAME}`)
+    process.exit(0)
+  } catch (e) {
+    console.error('⚠️ Não consegui configurar o pm2:', e.message)
+  }
+}
+
+let handingOff = false
+
 async function start() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR)
   const { version } = await fetchLatestBaileysVersion()
@@ -89,10 +138,12 @@ async function start() {
       presenceTimer = setInterval(() => {
         sock.sendPresenceUpdate('available').catch(() => {})
       }, 25_000)
+      await setupPm2(sock)
     }
 
     if (connection === 'close') {
       clearInterval(presenceTimer)
+      if (handingOff) return
       const code = lastDisconnect?.error?.output?.statusCode
       if (code === DisconnectReason.loggedOut) {
         console.log('❌ Sessão encerrada. Apague a pasta ./auth e conecte de novo (QR ou --code).')
@@ -144,4 +195,5 @@ async function start() {
   })
 }
 
+await showBanner(codeMode ? 'modo: código de pareamento' : 'modo: QR code')
 start()
