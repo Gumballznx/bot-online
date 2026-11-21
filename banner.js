@@ -40,8 +40,8 @@ function render(frame, status) {
     `${c.bold}${c.green}${pkg.name}${c.reset} ${c.dim}v${pkg.version}${c.reset}`,
     `${c.dim}WhatsApp • Baileys${c.reset}`,
     '',
-    `${c.cyan}● sempre online  ● .ver .del .bot${c.reset}`,
-    `${c.cyan}● salva visualização única${c.reset}`,
+    `${c.cyan}● sempre online  ● .ping .bot .del${c.reset}`,
+    `${c.cyan}● leitura normal (azul só quando ler)${c.reset}`,
   ]
   const plain = (s) => s.replace(/\x1b\[[0-9;]*m/g, '')
   const lines = frame.map((m, i) => {

@@ -2,11 +2,11 @@
 
 ```
 ╭────────────────────────────────────────────────────╮
-│      _|_      bot-online v1.6.0                    │
+│      _|_      bot-online v1.7.0                    │
 │    .-----.    WhatsApp • Baileys                   │
 │   | ^   ^ |                                        │
-│   |  \_/  |/  ● sempre online  ● .ver .del .bot   │
-│    '-----'    ● salva visualização única           │
+│   |  \_/  |/  ● sempre online  ● .ping .bot .del  │
+│    '-----'    ● leitura normal                    │
 ╰── modo: código de pareamento ──────────────────────╯
 ```
 
@@ -18,9 +18,8 @@ Bot de WhatsApp que roda **na sua própria conta**, numa VPS ou PC, 24 horas por
 |---|---|
 | 🟢 **Sempre online** | Sua conta aparece "online" o tempo todo |
 | ✅ **Leitura normal** | Quem te manda mensagem vê ✓✓ cinza quando chega e ✓✓ azul **só quando você ler** no celular. O bot nunca marca nada como lido sozinho |
-| 👁️ **Salva visualização única** | Foto, vídeo ou áudio de "ver uma vez" que você receber chega como cópia no **seu próprio chat** (a conversa com você mesmo) |
 | 🔄 **Reconecta sozinho** | Se a internet cair, ele volta sozinho |
-| 💬 **Comandos `.ping`, `.bot`, `.ver` e `.del`** | Só você (o número conectado) pode usar |
+| 💬 **Comandos `.ping`, `.bot` e `.del`** | Só você (o número conectado) pode usar |
 | 💾 **Se instala no pm2 sozinho** | Na primeira conexão ele mesmo se coloca no pm2 e fica salvo para voltar quando a VPS reiniciar |
 
 ## ⚡ Instalação rápida (1 comando)
@@ -74,10 +73,9 @@ Mande em **qualquer conversa** (ou no chat com você mesmo):
 |---|---|
 | `.ping` | 🏓 Pong! com a velocidade de resposta e há quanto tempo está online |
 | `.bot` | 🤖 Mascote, nome, versão, número, tempo online, memória e status das funções |
-| `.ver` | 👁️ **Marque (responda) uma foto, vídeo ou áudio de visualização única** com `.ver` e o bot manda a mídia **aberta** no mesmo chat, na hora |
 | `.del` | 🗑️ **Marque (responda) uma mensagem** com `.del` e o bot apaga **para todos**. No privado: só as suas. Em grupo: as suas sempre, e as dos outros só se você for **admin** |
 
-> 🔒 **Só o número conectado pode usar.** Se outra pessoa mandar `.ping`, `.bot`, `.ver` ou `.del`, o bot ignora.
+> 🔒 **Só o número conectado pode usar.** Se outra pessoa mandar `.ping`, `.bot` ou `.del`, o bot ignora.
 
 ## 🛠️ Comandos no terminal
 

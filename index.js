@@ -2,7 +2,6 @@
 import makeWASocket, {
   useMultiFileAuthState,
   DisconnectReason,
-  downloadMediaMessage,
   jidNormalizedUser,
   fetchLatestBaileysVersion,
   Browsers,
@@ -11,7 +10,7 @@ import pino from 'pino'
 import qrcode from 'qrcode-terminal'
 import readline from 'node:readline'
 import { execFileSync } from 'node:child_process'
-import { existsSync, writeFileSync, rmSync, readFileSync, mkdirSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, writeFileSync, rmSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import os from 'node:os'
 import path from 'node:path'
@@ -27,12 +26,6 @@ const AUTH_DIR =
     ? path.join(os.homedir(), '.bot-online', 'auth')
     : path.join(BOT_DIR, 'auth'))
 const PM2_FLAG = path.join(AUTH_DIR, '.pm2-saved')
-// Cache das visualizações únicas recebidas (para o .ver funcionar mesmo se o
-// WhatsApp não mandar a mídia junto da mensagem marcada).
-const CACHE_DIR = path.join(path.dirname(AUTH_DIR), 'viewonce-cache')
-const CACHE_MAX = 150
-const CACHE_DAYS = 7
-
 // A biblioteca de criptografia imprime sessões inteiras (com chaves) no log.
 // Esconde esse ruído.
 for (const fn of ['log', 'info', 'warn', 'error']) {
@@ -44,41 +37,6 @@ for (const fn of ['log', 'info', 'warn', 'error']) {
   }
 }
 
-const safeId = (id) => String(id || '').replace(/[^A-Za-z0-9_-]/g, '')
-
-function cachePut(id, data) {
-  id = safeId(id)
-  if (!id) return
-  try {
-    mkdirSync(CACHE_DIR, { recursive: true })
-    writeFileSync(path.join(CACHE_DIR, `${id}.bin`), data.buffer)
-    writeFileSync(path.join(CACHE_DIR, `${id}.json`), JSON.stringify({ ...data, buffer: undefined }))
-    // limpa: mais antigos que CACHE_DAYS ou além de CACHE_MAX
-    const files = readdirSync(CACHE_DIR)
-      .filter((f) => f.endsWith('.json'))
-      .map((f) => ({ f, t: statSync(path.join(CACHE_DIR, f)).mtimeMs }))
-      .sort((a, b) => b.t - a.t)
-    files.forEach(({ f, t }, i) => {
-      if (i >= CACHE_MAX || Date.now() - t > CACHE_DAYS * 86400_000) {
-        const base = f.slice(0, -5)
-        rmSync(path.join(CACHE_DIR, `${base}.json`), { force: true })
-        rmSync(path.join(CACHE_DIR, `${base}.bin`), { force: true })
-      }
-    })
-  } catch (e) {
-    console.error('Erro ao salvar cache:', e.message)
-  }
-}
-
-function cacheGet(id) {
-  id = safeId(id)
-  try {
-    const meta = JSON.parse(readFileSync(path.join(CACHE_DIR, `${id}.json`), 'utf8'))
-    return { ...meta, buffer: readFileSync(path.join(CACHE_DIR, `${id}.bin`)) }
-  } catch {
-    return null
-  }
-}
 const underPm2 = process.env.pm_id !== undefined
 const interactive = process.stdin.isTTY && process.stdout.isTTY && !underPm2
 
@@ -254,58 +212,10 @@ async function start() {
         if (!ts || Date.now() - ts > 60_000) continue // ignora mensagens antigas
         const m = msg.message.ephemeralMessage?.message || msg.message
         const text = (m.conversation || m.extendedTextMessage?.text || '').trim().toLowerCase()
-        if (!['.ping', '.bot', '.ver', '.del'].includes(text)) continue
+        if (!['.ping', '.bot', '.del'].includes(text)) continue
         await handleOwnerCommand(sock, msg, text, ts, m)
       } catch (e) {
         console.error('Erro no comando:', e.message)
-      }
-    }
-  })
-
-  // Espelha mídia de visualização única para o seu próprio chat
-  sock.ev.on('messages.upsert', async ({ messages, type }) => {
-    if (type !== 'notify') return
-    for (const msg of messages) {
-      try {
-        if (!msg.message || msg.key.fromMe) continue
-
-        // Formato antigo: mídia embrulhada em viewOnceMessage*
-        const wrapper =
-          msg.message.viewOnceMessageV2 ||
-          msg.message.viewOnceMessage ||
-          msg.message.viewOnceMessageV2Extension
-        // Formato novo: a própria mídia vem com viewOnce: true
-        const inner = wrapper?.message || msg.message
-
-        const kind = ['imageMessage', 'videoMessage', 'audioMessage'].find((k) => inner[k])
-        if (!kind) continue
-        if (!wrapper && !inner[kind].viewOnce) continue
-
-        const buffer = await downloadMediaMessage(
-          { key: msg.key, message: inner },
-          'buffer',
-          {},
-          { logger, reuploadRequest: sock.updateMediaMessage }
-        )
-
-        cachePut(msg.key.id, {
-          kind,
-          caption: inner[kind].caption || '',
-          mimetype: inner[kind].mimetype || '',
-          ptt: !!inner[kind].ptt,
-          buffer,
-        })
-
-        const me = jidNormalizedUser(sock.user.id)
-        const from = msg.pushName || msg.key.participant || msg.key.remoteJid
-        const caption = `👁️ Visualização única de ${from}`
-
-        if (kind === 'imageMessage') await sock.sendMessage(me, { image: buffer, caption })
-        else if (kind === 'videoMessage') await sock.sendMessage(me, { video: buffer, caption })
-        else await sock.sendMessage(me, { audio: buffer, mimetype: 'audio/ogg; codecs=opus', ptt: true })
-        console.log(`💾 Visualização única salva: ${kind} de ${from} (${msg.key.id})`)
-      } catch (e) {
-        console.error('Erro ao espelhar:', e.message)
       }
     }
   })
@@ -316,63 +226,6 @@ function formatUptime(ms) {
   const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600)
   const m = Math.floor((sec % 3600) / 60), s = sec % 60
   return [d && `${d}d`, h && `${h}h`, m && `${m}m`, `${s}s`].filter(Boolean).join(' ')
-}
-
-// .ver — marque (responda) uma mídia de visualização única com .ver
-// e o bot reenvia ela aberta (normal) no mesmo chat.
-async function revealViewOnce(sock, msg, m) {
-  const jid = msg.key.remoteJid
-  const ctx = m.extendedTextMessage?.contextInfo
-  const quoted = ctx?.quotedMessage
-  if (!quoted) {
-    await sock.sendMessage(jid, { text: '↩️ Marque (responda) uma foto, vídeo ou áudio de visualização única com *.ver*' }, { quoted: msg })
-    return
-  }
-  // 1) Mídia que o bot já guardou quando chegou
-  let item = cacheGet(ctx.stanzaId)
-
-  // 2) Senão, tenta baixar pela própria mensagem marcada
-  if (!item) {
-    const inner =
-      quoted.viewOnceMessageV2?.message ||
-      quoted.viewOnceMessage?.message ||
-      quoted.viewOnceMessageV2Extension?.message ||
-      quoted
-    const kind = ['imageMessage', 'videoMessage', 'audioMessage'].find((k) => inner[k])
-    if (!kind) {
-      await sock.sendMessage(jid, { text: '⚠️ A mensagem marcada não é foto, vídeo nem áudio.' }, { quoted: msg })
-      return
-    }
-    const media = inner[kind]
-    try {
-      if (!media.mediaKey || !(media.directPath || media.url)) throw new Error('mensagem marcada veio sem a chave da mídia')
-      const buffer = await downloadMediaMessage(
-        {
-          key: { remoteJid: jid, id: ctx.stanzaId, participant: ctx.participant, fromMe: false },
-          message: { [kind]: media },
-        },
-        'buffer',
-        {},
-        { logger, reuploadRequest: sock.updateMediaMessage }
-      )
-      item = { kind, buffer, caption: media.caption || '', mimetype: media.mimetype || '', ptt: !!media.ptt }
-    } catch (e) {
-      console.error(`.ver: falha ao baixar ${ctx.stanzaId}:`, e.message)
-      await sock.sendMessage(
-        jid,
-        { text: '❌ Não consegui abrir essa mídia. O .ver funciona com visualizações únicas recebidas *com o bot ligado*. Mídias antigas ou já abertas não dá.' },
-        { quoted: msg }
-      )
-      return
-    }
-  }
-
-  const { kind, buffer } = item
-  const caption = item.caption || undefined
-  if (kind === 'imageMessage') await sock.sendMessage(jid, { image: buffer, caption }, { quoted: msg })
-  else if (kind === 'videoMessage') await sock.sendMessage(jid, { video: buffer, caption }, { quoted: msg })
-  else await sock.sendMessage(jid, { audio: buffer, mimetype: item.mimetype || 'audio/ogg; codecs=opus', ptt: item.ptt }, { quoted: msg })
-  console.log(`👁️ .ver: ${kind} ${ctx.stanzaId} enviado`)
 }
 
 // Meus próprios ids (número e LID), sem o :dispositivo
@@ -416,10 +269,6 @@ async function handleOwnerCommand(sock, msg, cmd, sentAt, m) {
     await deleteQuoted(sock, msg, m)
     return
   }
-  if (cmd === '.ver') {
-    await revealViewOnce(sock, msg, m)
-    return
-  }
   if (cmd === '.ping') {
     const lat = Math.max(0, Date.now() - sentAt)
     await sock.sendMessage(jid, { text: `🏓 *Pong!*\n⚡ ${lat} ms\n⏱️ Online há ${formatUptime(Date.now() - startedAt)}` }, { quoted: msg })
@@ -445,9 +294,8 @@ async function handleOwnerCommand(sock, msg, cmd, sentAt, m) {
     '',
     '🟢 Sempre online: ativo',
     '✅ Confirmação de leitura: normal (azul só quando você ler)',
-    '👁️ Visualização única: salvando no seu chat',
     '',
-    '_Comandos (só você pode usar): .ping • .bot • .ver • .del_',
+    '_Comandos (só você pode usar): .ping • .bot • .del_',
   ].join('\n')
   await sock.sendMessage(jid, { text }, { quoted: msg })
 }

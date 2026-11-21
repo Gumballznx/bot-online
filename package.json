@@ -1,7 +1,7 @@
 {
   "name": "bot-online",
-  "version": "1.6.0",
-  "description": "Bot de WhatsApp (Baileys) que mantém a conta online, tem comandos .ping/.bot/.ver e guarda visualizações únicas no seu próprio chat.",
+  "version": "1.7.0",
+  "description": "Bot de WhatsApp (Baileys) que mantém a conta online, tem comandos .ping/.bot/.del.",
   "type": "module",
   "main": "index.js",
   "bin": {
